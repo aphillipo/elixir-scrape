@@ -1,5 +1,5 @@
 defmodule Scrape.Feed do
-  defstruct title: "", subtitle: "", short_desc: "", desc: "", webpage: "",
+  defstruct title: "", subtitle: "", short_desc: "", desc: "", website: "",
             pubdate: DateTime, logo: "", items: [], image: "", content_encoded: "", language: "en"
 
   alias Scrape.Exquery
@@ -14,16 +14,16 @@ defmodule Scrape.Feed do
 
     title = parsed_xml |> Exquery.find("channel > title", :first)
     subtitle = parsed_xml |> Exquery.find("channel > itunes|subtitle")
-    webpage = parsed_xml |> Exquery.find("channel > link")
+    website = parsed_xml |> Exquery.find("channel > link")
     pubdate = parsed_xml |> Exquery.find("channel > updated, channel > pubDate, channel> pubdate", :first) |> try_date
     image = parsed_xml |> Exquery.find("channel > itunes|image")
-    logo = find_logo_url(webpage)
+    logo = find_logo_url(website)
     content_encoded = parsed_xml |> Exquery.find("channel > content|encoded")
 
     %Scrape.Feed{
       title: title,
       subtitle: subtitle,
-      webpage: webpage,
+      website: website,
       image: image,
       logo: logo,
       pubdate: pubdate,
@@ -44,10 +44,13 @@ defmodule Scrape.Feed do
   end
 
   defp transform_item(item) do
+    %{ media: media, media_type: media_type, length: _ } = find_media(item)
     %Scrape.FeedItem{
       title: find_title(item),
       description: find_description(item),
       content_encoded: find_encoded(item),
+      media: media,
+      media_type: media_type,
       url: find_url(item),
       tags: find_tags(item),
       image: find_image(item),
@@ -81,6 +84,30 @@ defmodule Scrape.Feed do
     end
 
     clean_text url
+  end
+
+
+  defp find_media_link({ "enclosure", attributes, _children }) do
+    { "url", url } = List.keyfind(attributes, "url", 0)
+    url
+  end
+  defp find_media_link({ "link", attributes, _children }) do
+    { "href", url } = List.keyfind(attributes, "href", 0)
+    url
+  end
+
+  defp find_media(item) do
+    enclosure = item |> Floki.find("enclosure, link[rel=\"enclosure\"]") |> Enum.at(0)
+
+    { _, attributes, _ } = enclosure
+    { "type", media_type } = List.keyfind(attributes, "type", 0)
+    { "length", length } = List.keyfind(attributes, "length", 0)
+
+    %{
+        media: find_media_link(enclosure),
+        media_type: media_type,
+        length: length
+    }
   end
 
   defp find_tags(item) do
