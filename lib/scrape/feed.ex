@@ -118,9 +118,11 @@ defmodule Scrape.Feed do
   end
 
   defp find_image(item) do
-    enclosure = item |> Exquery.attr("enclosure", "url")
-    media = enclosure || item |> Exquery.attr("media, content", :first)
+    # enclosure = item |> Exquery.attr("enclosure", "url")
+    # media = enclosure || item |> Exquery.attr("media, content", :first)
 
+    media = item |> Exquery.attr("itunes|image", "href", :first)
+    IO.inspect("FUCK" <> media)
     if media do
       clean_text media
     else
